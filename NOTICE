@@ -1,0 +1,43 @@
+# 第三方材料说明
+
+本仓库的**代码**以 MIT 许可证发布（见 LICENSE）。但下列第三方材料不在 MIT 范围内，
+各自归属其权利人。
+
+## 商标与图标
+
+`assets/logos/` 与 `main/lv_img_agent_icons.c` 中包含四个标识，仅用于在界面上
+指代对应的产品或服务，属于指明性使用（nominative use）：
+
+| 标识 | 权利人 | 来源 |
+|---|---|---|
+| Apple 标识 | Apple Inc. | simple-icons 项目（图标文件以 CC0 提供，但商标权归 Apple） |
+| WorkBuddy 图标 | WorkBuddy 相应权利人 | 从本机安装的应用包中提取 |
+| Hermes Agent 图标 | Nous Research | 该项目发布的 `assets/icon-master.svg` |
+| DeepSeek 标识 | 杭州深度求索人工智能基础技术研究有限公司 | simple-icons 项目与本项目公开资源 |
+
+这些标识**不随本项目的 MIT 许可证授权**。你不是商标权利人，不能将其用于
+商业标识、产品包装、宣传暗示背书等场景。若你要分发基于本项目的产品，
+请替换为自有的图形，或确认已获得相应授权。
+
+`assets/logos/badge-preview.png` 为上述标识的合成示意图，同样受此限制。
+
+## 字体
+
+`scripts/gen_fonts.py` 会下载并在本地生成点阵字库，字体本身不纳入本仓库
+（生成的 `.c` 文件已在 `.gitignore` 中排除）。
+
+| 字体 | 许可证 |
+|---|---|
+| Noto Sans SC | SIL Open Font License 1.1 |
+| Orbitron | SIL Open Font License 1.1 |
+
+生成的位图字库属于字体的衍生作品，分发时须遵守 OFL：保留版权声明，
+且不得单独售卖字体本身。
+
+## 依赖组件
+
+编译时会自动拉取以下组件，各自遵循其自身许可证：
+
+- `waveshare/esp32_p4_wifi6_touch_lcd_4_3`（微雪电子）
+- `espressif/esp_tinyusb`、`lvgl/lvgl`（Apache-2.0 / MIT）
+- ESP-IDF（Apache-2.0）

@@ -1,0 +1,7 @@
+﻿# 编程启蒙工作站原型分区表
+# 应用 8 兆字节（中文字库与界面资源需要），素材区 7 兆字节
+# Name,   Type, SubType, Offset,  Size, Flags
+nvs,      data, nvs,     0x9000,  0x6000,
+phy_init, data, phy,     0xf000,  0x1000,
+factory,  app,  factory, ,        8M,
+storage,  data, spiffs,  ,        7M,

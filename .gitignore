@@ -1,0 +1,21 @@
+# 构建产物
+build/
+build_*/
+*.log
+
+# ESP-IDF 生成的配置与组件（由 sdkconfig.defaults 与 idf_component.yml 决定）
+sdkconfig
+sdkconfig.old
+managed_components/
+dependencies.lock
+
+# 由 scripts/gen_fonts.py 生成，体积很大，不纳入版本库
+main/lv_font_*.c
+
+# 运行时
+logs/
+__pycache__/
+*.pyc
+
+# 系统
+.DS_Store
