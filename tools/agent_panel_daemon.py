@@ -384,22 +384,29 @@ def render_line(item, now):
             out[k] = item[k]
     return json.dumps(out, ensure_ascii=False, separators=(",", ":"))
 
-def scan_ports():
-    """按优先级列出候选端口：先 AGP（Agent Panel），再任意 usbmodem。"""
+def scan_ports(allow_any=False):
+    """候选端口。
+
+    默认只认 Agent Panel（端口名含序列号 AGP）。这块板在 ROM 下载模式下
+    也会生成 usbmodem 端口（设备名 ESP32_P4），若回退到"任意 usbmodem"，
+    采集端会连上引导装载器并往里写 JSON，干扰烧录。所以默认不做这种回退，
+    确需时用 --any-port 显式打开。
+    """
     try:
         names = sorted(os.listdir("/dev"))
     except OSError:
         return []
     agp = ["/dev/" + n for n in names if n.startswith("cu.usbmodem") and "AGP" in n]
-    rest = ["/dev/" + n for n in names if n.startswith("cu.usbmodem") and "/dev/" + n not in agp]
-    return agp + rest
+    if agp or not allow_any:
+        return agp
+    return ["/dev/" + n for n in names if n.startswith("cu.usbmodem")]
 
-def open_port(preferred):
-    """尝试打开端口，失败返回 (None, 端口名)。"""
+def open_port(preferred, allow_any=False):
+    """尝试打开端口，失败返回 (None, None)。"""
     candidates = []
     if preferred and os.path.exists(preferred):
         candidates.append(preferred)
-    candidates += [p for p in scan_ports() if p not in candidates]
+    candidates += [p for p in scan_ports(allow_any) if p not in candidates]
 
     for port in candidates:
         try:
@@ -444,6 +451,8 @@ def main():
     ap.add_argument("--port", help="串口设备，例如 /dev/cu.usbmodemXXXX")
     ap.add_argument("--interval", type=float, default=2.0)
     ap.add_argument("--once", action="store_true", help="只采集一轮后退出")
+    ap.add_argument("--any-port", action="store_true",
+                    help="允许回退到任意 usbmodem 端口（默认只认 Agent Panel）")
     args = ap.parse_args()
 
     # --once：只打印，不推串口
@@ -467,7 +476,7 @@ def main():
     while True:
         # 无连接：尝试打开端口，失败则等待后重试（不退出）
         if ser is None:
-            ser, port = open_port(preferred)
+            ser, port = open_port(preferred, getattr(args, "any_port", False))
             if ser is None:
                 print("[等待] 暂无可用的板子端口，3 秒后重试", flush=True)
                 time.sleep(3)
