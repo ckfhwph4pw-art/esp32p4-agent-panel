@@ -360,6 +360,14 @@ def collect_pc(now):
 
 # ---------- 主循环 ----------
 
+def tz_offset():
+    """本地时区相对 UTC 的偏移秒数。四舍五入到 15 分钟，避开夏令时边界抖动。"""
+    try:
+        off = int(time.mktime(time.localtime()) - time.mktime(time.gmtime()))
+        return int(round(off / 900.0) * 900)
+    except Exception:
+        return 0
+
 def render_line(item, now):
     age = item.get("age")
     out = {
@@ -382,6 +390,9 @@ def render_line(item, now):
     for k in ("cpu", "mem", "disk", "load"):
         if item.get(k) is not None:
             out[k] = item[k]
+    # 时间基准：板子据此在本地走秒，不必依赖网络对时
+    out["ts"] = int(now)
+    out["tz"] = tz_offset()
     return json.dumps(out, ensure_ascii=False, separators=(",", ":"))
 
 def scan_ports(allow_any=False):

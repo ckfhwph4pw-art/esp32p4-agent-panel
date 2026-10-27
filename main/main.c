@@ -34,6 +34,10 @@ extern const lv_font_t lv_font_noto16;
 extern const lv_font_t lv_font_orbitron48;
 extern const lv_font_t lv_font_orbitron32;
 extern const lv_font_t lv_font_orbitron20;
+/* Audiowide：宽体圆角科技字型，用于状态词与顶栏/时钟 */
+extern const lv_font_t lv_font_tech40;
+extern const lv_font_t lv_font_tech22;
+extern const lv_font_t lv_font_tech20;
 
 #define C_BG     lv_color_hex(0x0B0F14)
 #define C_BAR    lv_color_hex(0x131A22)
@@ -99,11 +103,21 @@ static lv_obj_t *s_tv;
 static lv_obj_t *s_num[4];
 static lv_obj_t *s_ring[4];
 static lv_obj_t *s_link;
+static lv_obj_t *s_date;      /* 底栏左侧日期 */
+static lv_obj_t *s_time;      /* 底栏右侧时间 */
+
+/* 时间基准：采集端随数据下发 UTC 秒与时区偏移，板子本地按秒自走 */
+static time_t   s_epoch;
+static int32_t  s_tz;
+static uint32_t s_epoch_tick;
 static lv_obj_t *s_mini[4];
 
 static void f_text(lv_obj_t *o)  { lv_obj_set_style_text_font(o, &lv_font_noto30, 0); }
 static void f_small(lv_obj_t *o) { lv_obj_set_style_text_font(o, &lv_font_noto16, 0); }
 static void f_num(lv_obj_t *o)   { lv_obj_set_style_text_font(o, &lv_font_orbitron20, 0); }
+static void f_tech40(lv_obj_t *o){ lv_obj_set_style_text_font(o, &lv_font_tech40, 0); }
+static void f_tech22(lv_obj_t *o){ lv_obj_set_style_text_font(o, &lv_font_tech22, 0); }
+static void f_tech20(lv_obj_t *o){ lv_obj_set_style_text_font(o, &lv_font_tech20, 0); }
 
 static lv_color_t state_color(st_t st)
 {
@@ -117,6 +131,19 @@ static lv_color_t state_color(st_t st)
     }
 }
 
+/* 页面主标题用的英文状态词：大写、短、扫一眼即可辨认 */
+static const char *state_en(st_t st)
+{
+    switch (st) {
+        case ST_BUSY: return "BUSY";
+        case ST_IDLE: return "IDLE";
+        case ST_WAIT: return "WAIT";
+        case ST_ERR:  return "ERROR";
+        case ST_OFF:  return "OFFLINE";
+        default:      return "NO DATA";
+    }
+}
+
 static const char *state_word(st_t st)
 {
     switch (st) {
@@ -127,6 +154,30 @@ static const char *state_word(st_t st)
         case ST_OFF:  return "已离线";
         default:      return "未知";
     }
+}
+
+/* 每秒刷新底栏日期与时间。只用数字，不含中文。
+   秒数由本地节拍推算，收到的 ts 会不断校正，所以不会累积漂移。 */
+static void clock_tick(lv_timer_t *t)
+{
+    (void)t;
+    if (!s_date || !s_time) return;
+
+    if (s_epoch <= 0) {
+        lv_label_set_text(s_date, "----.--.--");
+        lv_label_set_text(s_time, "--:--:--");
+        return;
+    }
+
+    uint32_t el = (xTaskGetTickCount() - s_epoch_tick) * portTICK_PERIOD_MS / 1000;
+    time_t local = s_epoch + s_tz + (time_t)el;
+    struct tm tmv;
+    gmtime_r(&local, &tmv);
+
+    lv_label_set_text_fmt(s_date, "%04d-%02d-%02d",
+                          tmv.tm_year + 1900, tmv.tm_mon + 1, tmv.tm_mday);
+    lv_label_set_text_fmt(s_time, "%02d:%02d:%02d",
+                          tmv.tm_hour, tmv.tm_min, tmv.tm_sec);
 }
 
 static void opa_anim(void *var, int32_t v)
@@ -236,17 +287,17 @@ static void build_agent_page(lv_obj_t *tile, int idx)
     lv_obj_set_pos(u->ring, 24, 66);
 
     u->word = lv_label_create(tile);
-    lv_label_set_text(u->word, state_word(a->st));
-    f_text(u->word);
+    lv_label_set_text(u->word, state_en(a->st));
+    f_tech40(u->word);
     lv_obj_set_style_text_color(u->word, lv_color_hex(a->brand), 0);
-    lv_obj_set_style_text_letter_space(u->word, 2, 0);
-    lv_obj_set_pos(u->word, 112, 68);
+    lv_obj_set_style_text_letter_space(u->word, 1, 0);
+    lv_obj_set_pos(u->word, 112, 78);
 
     u->sub = lv_label_create(tile);
-    lv_label_set_text(u->sub, "最后活动 --");
+    lv_label_set_text(u->sub, "未知 · 最后活动 --");
     f_small(u->sub);
     lv_obj_set_style_text_color(u->sub, C_SUB, 0);
-    lv_obj_set_pos(u->sub, 112, 110);
+    lv_obj_set_pos(u->sub, 112, 130);
 
     u->task = lv_label_create(tile);
     lv_label_set_text(u->task, "等待数据");
@@ -335,10 +386,11 @@ static void build_pc_page(lv_obj_t *tile)
     lv_obj_set_pos(u->ring, 24, 40);
 
     u->word = lv_label_create(tile);
-    lv_label_set_text(u->word, "本机");
-    f_text(u->word);
+    lv_label_set_text(u->word, "SYSTEM");
+    f_tech40(u->word);
     lv_obj_set_style_text_color(u->word, lv_color_hex(a->brand), 0);
-    lv_obj_set_pos(u->word, 112, 44);
+    lv_obj_set_style_text_letter_space(u->word, 1, 0);
+    lv_obj_set_pos(u->word, 112, 52);
 
     u->sub = lv_label_create(tile);
     lv_label_set_text(u->sub, "等待数据");
@@ -346,7 +398,7 @@ static void build_pc_page(lv_obj_t *tile)
     lv_obj_set_style_text_color(u->sub, C_SUB, 0);
     lv_obj_set_width(u->sub, 340);
     lv_label_set_long_mode(u->sub, LV_LABEL_LONG_DOT);
-    lv_obj_set_pos(u->sub, 112, 86);
+    lv_obj_set_pos(u->sub, 112, 104);
 
     static const char *names[3] = { "处理器", "内存", "磁盘" };
     for (int k = 0; k < 3; k++) {
@@ -424,10 +476,11 @@ static void update_agent_page(int i)
     if (a->st == ST_BUSY) pulse_start(u->ring);
     else                  pulse_stop(u->ring);
 
-    lv_label_set_text(u->word, state_word(a->st));
+    lv_label_set_text(u->word, state_en(a->st));
     lv_obj_set_style_text_color(u->word, lv_color_hex(a->brand), 0);
 
-    lv_label_set_text_fmt(u->sub, "最后活动 %s", a->ago);
+    /* 副行保留中文状态，便于中文阅读；主标题已改为英文大字号 */
+    lv_label_set_text_fmt(u->sub, "%s · 最后活动 %s", state_word(a->st), a->ago);
     lv_label_set_text(u->task, a->task);
     lv_label_set_text(u->cmd, a->cmd);
 
@@ -532,12 +585,14 @@ static void build_ui(void)
     lv_obj_t *brand = lv_label_create(bar);
     lv_label_set_text(brand, "AGENT PANEL");
     f_num(brand);
+    f_tech22(brand);
+    lv_obj_set_style_text_letter_space(brand, 1, 0);
     lv_obj_set_style_text_color(brand, C_SUB, 0);
-    lv_obj_set_pos(brand, 142, 18);
+    lv_obj_set_pos(brand, 142, 16);
 
     s_link = lv_label_create(bar);
     lv_label_set_text(s_link, "WAIT");
-    f_num(s_link);
+    f_tech22(s_link);
     lv_obj_set_style_text_color(s_link, C_SUB, 0);
     lv_obj_align(s_link, LV_ALIGN_RIGHT_MID, -16, 0);
 
@@ -595,6 +650,19 @@ static void build_ui(void)
     f_small(hint);
     lv_obj_set_style_text_color(hint, C_DIM, 0);
     lv_obj_align(hint, LV_ALIGN_TOP_MID, 0, 48);
+
+    /* 底栏左右两端：左日期、右时间，仅数字 */
+    s_date = lv_label_create(foot);
+    lv_label_set_text(s_date, "----.--.--");
+    f_tech20(s_date);
+    lv_obj_set_style_text_color(s_date, C_SUB, 0);
+    lv_obj_set_pos(s_date, 14, 13);
+
+    s_time = lv_label_create(foot);
+    lv_label_set_text(s_time, "--:--:--");
+    f_tech20(s_time);
+    lv_obj_set_style_text_color(s_time, C_TXT, 0);
+    lv_obj_align(s_time, LV_ALIGN_TOP_RIGHT, -14, 13);
 }
 
 static int agent_index(const char *id)
@@ -648,6 +716,9 @@ static void handle_line(const char *line)
     copy_str(a->csub, sizeof(a->csub), cJSON_GetObjectItem(root, "csub"));
     copy_str(a->heat, sizeof(a->heat), cJSON_GetObjectItem(root, "heat"));
 
+    cJSON *jts = cJSON_GetObjectItem(root, "ts");
+    cJSON *jtz = cJSON_GetObjectItem(root, "tz");
+
     cJSON *jel = cJSON_GetObjectItem(root, "el");
     a->elapsed = cJSON_IsNumber(jel) ? jel->valueint : -1;
 
@@ -662,6 +733,15 @@ static void handle_line(const char *line)
     if (cJSON_IsNumber(jmem)) a->mem = jmem->valueint;
     if (cJSON_IsNumber(jdsk)) a->disk = jdsk->valueint;
     if (cJSON_IsNumber(jld))  a->load10 = jld->valueint;
+
+    /* 时间基准：每条消息都带，取到就以最新为准 */
+    if (cJSON_IsNumber(jts)) {
+        s_epoch      = (time_t)jts->valuedouble;
+        s_epoch_tick = xTaskGetTickCount();
+    }
+    if (cJSON_IsNumber(jtz)) {
+        s_tz = (int32_t)jtz->valueint;
+    }
 
     a->last_rx = time(NULL);
     cJSON_Delete(root);
@@ -803,6 +883,7 @@ void app_main(void)
     }
     build_ui();
     lv_timer_create(stale_timer, 1000, NULL);
+    lv_timer_create(clock_tick, 1000, NULL);     /* 底栏日期时间，每秒走一格 */
     bsp_display_unlock();
 
     bsp_display_brightness_set(100);

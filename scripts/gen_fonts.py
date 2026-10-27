@@ -32,6 +32,10 @@ FONT_URLS = {
         "https://fastly.jsdelivr.net/gh/google/fonts@main/ofl/notosanssc/NotoSansSC%5Bwght%5D.ttf",
         "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/notosanssc/NotoSansSC%5Bwght%5D.ttf",
     ],
+    "Audiowide-Regular.ttf": [
+        "https://fastly.jsdelivr.net/gh/google/fonts@main/ofl/audiowide/Audiowide-Regular.ttf",
+        "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/audiowide/Audiowide-Regular.ttf",
+    ],
     "Orbitron.ttf": [
         "https://fastly.jsdelivr.net/gh/google/fonts@main/ofl/orbitron/Orbitron%5Bwght%5D.ttf",
         "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/orbitron/Orbitron%5Bwght%5D.ttf",
@@ -45,6 +49,10 @@ TARGETS = {
     "orbitron48": ("Orbitron.ttf",   48, False),
     "orbitron32": ("Orbitron.ttf",   32, False),
     "orbitron20": ("Orbitron.ttf",   20, False),
+    # Audiowide：宽体圆角科技字型，用于英文状态词、顶栏与底栏时钟
+    "tech40":     ("Audiowide-Regular.ttf", 40, False),
+    "tech22":     ("Audiowide-Regular.ttf", 22, False),
+    "tech20":     ("Audiowide-Regular.ttf", 20, False),
 }
 
 
